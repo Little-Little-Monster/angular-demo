@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>angular增删改查</title>
+	<script type="text/javascript" src="angular.js"></script>
+	<style>
+		*{
+			margin:0;
+			padding:0;
+		}
+		html,body{
+			width:100%;
+			height: 100%;
+			background: rgba(89,195,226,0.1);
+		}
+		ul,li{
+			list-style: none;
+			width:100%;
+			height: 25px;
+			text-align: center;
+			line-height: 25px;
+		}
+		li span{
+			width:15%;
+			height: 25px;
+			display: inline-block;
+			text-align:center;
+		}
+		.book-name{
+			width:25%;
+		}
+		li span:nth-child(2){
+			width:20%;
+		}
+		.contain{
+			margin-left:20px;
+		}
+		.red{
+			background: rgba(255,0,255,0.3);
+		}
+		.blue{
+			background: rgba(255,255,0,0.3);
+		}
+		.tit{
+			background: aqua;
+		}
+		.tit span{
+			cursor:pointer;
+			float: left;
+		}
+		.list input{
+			width:100px;
+		}
+		.list span{
+			display: inline;
+		}
+		input{
+			text-align: center;
+			width: 130px;
+		}
+		.Fleft span{
+			float: left;
+		}
+		.option{
+			width:350px;
+		}
+	</style>
+</head>
+<body>
+	<div ng-app="app">
+		<div ng-controller="firstControl" class="contain">
+			<br />
+			<h2>图书管理系统</h2>
+			<br />
+			查找：<select ng-model="type">
+					<option value="id">按编号查找</option>
+					<option value="name">按书名查找</option>
+					<option value="author">按作者查找</option>
+					<option value="price">按价格查找</option>
+				</select>
+					<input type="text" ng-model="checkName"/>
+			<br />
+			<br />
+			<hr />
+			<br />
+			<button ng-click="addList()">增加</button>
+			<div ng-include=add ng-show="addShow"></div>
+			<br />
+			<br />
+			<hr />
+			<ul>
+				<li class="tit">
+					<span ng-click="order(0)">编号：</span>
+					<span class="book-name" ng-click="order(1)">书名</span>
+					<span ng-click="order(2)">价格</span>
+					<span ng-click="order(3)">作者</span>
+					<span class="option">操作</span>
+					
+				</li>	
+				<li ng-repeat="book in books | filter:returnType() | orderBy:orderList" ng-class-odd="odd" ng-class-even="even" class="Fleft">
+					<span>
+						<b ng-bind="book.id"></b>
+					</span>
+					<span>
+						<b ng-hide="isShow" ng-bind="book.name"></b>
+						<input type="text" ng-model="book.name" ng-show="isShow"/>
+					</span>
+					<span>
+						<b ng-hide="isShow" ng-bind="book.price | currency:'￥'"></b>
+						<input type="number" ng-model="book.price" ng-show="isShow"/>
+					</span>
+					<span>
+						<b ng-hide="isShow" ng-bind="book.author"></b>
+						<input type="text" ng-model="book.author" ng-show="isShow"/>
+					</span>
+					<span ng-hide="buttonShow"><button ng-click="modifine()">修改</button></span>
+					<span ng-hide="buttonShow"><button ng-click="delete(book.id,$index)">删除</button></span>
+					<span ng-show="buttonShow"><button ng-click="sure(book)">确定</button></span>
+					<span ng-show="buttonShow"><button ng-click="cancel()">取消</button></span>
+				</li>
+			</ul>	
+		</div>
+		<!-- 添加书动态加载的模板 -->
+		<script id="addItem" type="text/ng-template">
+			<ul>
+				<li class="list">
+					<span>编号：<input type="number" ng-model="addInfo.id"/></span>
+					<span>书名：<input type="text" ng-model="addInfo.name"/></span>
+					<span>价格：<input type="number" ng-model="addInfo.price"/></span>
+					<span>作者：<input type="text" ng-model="addInfo.author"/></span>
+					<span>
+						<button ng-click="addSure()">确定</button>
+						<button ng-click="addCancel()">取消</button>
+					</span>
+				</li>
+			</ul>
+		</script>
+	</div>
+</body>
+<script>
+	var app = angular.module("app",[]);
+	//服务
+	app.service("bookServer",["$http",function($http){
+		//初始化获取数据
+		this.getdata = function(callback){
+			$http({
+				methoad:"get",
+				url:"php/bookServer.php",
+				params:{
+					"option":"select"
+				}
+			}).success(function(data){
+				callback(data);
+				console.log(data)
+			})
+		};
+		//删除
+		this.remove = function(url,data,callback){
+			$http.get(url,data).success(function(res){
+				callback(res);
+			});
+		};
+		//修改
+		this.update = function(url,data,callback){
+			$http.get(url,data).success(function(res){
+				callback(res);
+			})
+		};
+		//增加
+		this.addItem = function(url,data,callback){
+			$http.get(url,data).success(function(res){
+				callback(res);
+			})
+		};
+
+	}])
+	app.controller("firstControl",["$scope","$http","$location","$document","bookServer",function($scope,$http,$location,$document,bookServer){
+		$scope.odd = "red";
+		$scope.even = "blue";
+		$scope.isShow = false;
+		$scope.addShow = false;
+		$scope.buttonShow = false;
+		$scope.isUp = true;
+		$scope.add="";
+		$scope.orderList = "";
+		$scope.addInfo = {
+			id:0,
+			name:"",
+			price:0,
+			author:""
+		};
+		$scope.type = "id";
+		
+		$scope.isShow = false;
+		//从后台获取数据
+		bookServer.getdata(function(data){
+			$scope.books = data;
+			console.log($scope.books)
+		});
+
+		//修改
+		$scope.modifine = function(){
+			this.isShow = true;
+			this.buttonShow = true;
+		};
+		//返回过滤值
+		$scope.returnType = function(){
+			return {[$scope.type]:$scope.checkName}
+		}
+		//修改确定后返回
+		$scope.sure = function(book){
+			$scope.changeInfo = book;
+			var that = this;
+			//向服务器发送数据局
+			bookServer.update("php/bookServer.php",{params:{"option":"update","book":$scope.changeInfo}},function(res){
+				if(res==0){
+					that.isShow = false;
+					that.buttonShow = false;
+				}else{
+					console.log("update error");
+				}
+			})
+		}
+		$scope.cancel = function(){
+			this.isShow = false;
+			this.buttonShow = false;
+		}
+		//删除
+		$scope.delete = function(id,index){		
+			//后台删除
+			bookServer.remove("php/bookServer.php",{params:{"option":"delete","id":id}},function(res){
+				console.log(res);
+				if(res==0){
+					console.log("success");				
+					$scope.books.splice(index,1);
+					//页面删除
+					$location.path("/");
+					console.log($scope.books);
+				}else{
+					console.log("delete error")
+				}
+			})
+		};
+
+		//增加选项
+		$scope.addList = function(){
+			this.add = "addItem";
+			$scope.addShow = !$scope.addShow;
+		}
+		$scope.addSure = function(){
+			bookServer.addItem("php/bookServer.php",{params:{"option":"addItem","addData":$scope.addInfo}},function(res){
+				if(res==0){
+					$scope.books.push($scope.addInfo);
+					$scope.addInfo = {
+						id:0,
+						name:"",
+						price:0,
+						author:""
+					};
+					console.log("addITem success");
+				}else if(res==1){
+					alert("请勿重复添加");
+				}else if(res==2){
+					alert("请输入完整信息");
+				}else{
+					console.log("addItem error");
+				}
+			})
+			
+		}
+		//取消增加
+		$scope.addCancel = function(){
+			$scope.addShow = !$scope.addShow;
+		}
+		//点击排序
+		$scope.order = function(num){
+			if($scope.isUp){
+				add = '+';
+			}else{
+				add = "-";
+			}
+			switch(num){
+				case 0: $scope.orderList= add+'id';break;
+				case 1: $scope.orderList= add+'name';break;
+				case 2: $scope.orderList= add+'price'; break;
+				case 3: $scope.orderList= add+'author';break;	 
+			}
+			$scope.isUp = !$scope.isUp;
+		}
+
+	}]);	
+</script>
+</html>
